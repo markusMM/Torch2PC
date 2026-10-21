@@ -1,6 +1,9 @@
 
+import os
 import torch
 
+
+NN_BLOCK_OUT_INDEX = int(os.environ.get('NN_BLOCK_OUT_INDEX', '0'))  # Default to 0 if not set
 
 def fout_wrapper(output) -> torch.Tensor:
     """
@@ -9,5 +12,5 @@ def fout_wrapper(output) -> torch.Tensor:
     If the output is already a tensor, it returns it as is.
     """
     if isinstance(output, tuple):
-        return output[0]
+        return output[NN_BLOCK_OUT_INDEX]
     return output

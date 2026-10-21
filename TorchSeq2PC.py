@@ -1,4 +1,5 @@
 import torch
+from typing import Any
 from utils import fout_wrapper
 
 print('Running TorchSeq2PC.py with fout_wrapper Integration')
@@ -10,14 +11,14 @@ print('Running TorchSeq2PC.py with fout_wrapper Integration')
 # Returns activations for all layers (vhat), loss, and gradient of loss
 # wrt last-layer activations (dLdy)
 # vhat,Loss,dLdy=FwdPassPlus(model,LossFun,X,Y)
-def FwdPassPlus(model,LossFun,X,Y):
+def FwdPassPlus(model,LossFun,X,Y) -> tuple[list[None], Any, torch.Tensor]:
     
     # Number of layers, counting the input as layer 0 
     DepthPlusOne=len(model)+1 
 
     # Forward pass
     vhat=[None]*DepthPlusOne
-    # Falls X selbst als Tupel reinkommt, packen wir hier das erste Element aus
+    # additional wrapper to ensure that the output of each layer is a single tensor
     vhat[0]=fout_wrapper(X)
     for layer in range(1,DepthPlusOne):
       f=model[layer-1]        
@@ -56,8 +57,7 @@ def FixedPredPCPredErrs(model,vhat,dLdy,eta=1,n=None):
     for i in range(n):
       for layer in reversed(range(DepthPlusOne-1)):  
         epsilon[layer]=vhat[layer]-v[layer]
-        # vjp verlangt eine Funktion, die einen reinen Tensor zurückgibt.
-        # Daher kapseln wir den Layer-Aufruf in ein Lambda mit fout_wrapper.
+        # vjp demands a function that returns a single tensor, so we wrap the model call with fout_wrapper
         _,epsdfdv=torch.autograd.functional.vjp(
             lambda inp: fout_wrapper(model[layer](inp)), 
             vhat[layer], 
@@ -100,7 +100,7 @@ def StrictPCPredErrs(model,vinit,LossFun,Y,eta,n):
       epsilon[layer]=torch.autograd.grad(Loss,vtilde,retain_graph=False)[0]
       for layer in reversed(range(1,DepthPlusOne-1)):
         epsilon[layer]=fout_wrapper(model[layer-1](v[layer-1]))-v[layer]
-        # Lambda-Wrapper für vjp, damit Tuple entpackt werden
+        # Lambda-Wrapper for vjp, so that the output tuple is unpacked
         _,epsdfdv=torch.autograd.functional.vjp(
             lambda inp: fout_wrapper(model[layer](inp)), 
             v[layer], 
@@ -166,7 +166,7 @@ def SetPCGrads(model,epsilon,X,v=None):
       with torch.no_grad():
         vtemp0=v[layer].clone()
         vtemp0.requires_grad=True
-      # Auspacken des Layer-Ergebnisses für die Gradientenberechnung der Gewichte
+      # unpack the output of the layer to ensure it's a single tensor
       vtemp1=fout_wrapper(model[layer](vtemp0))
       for p in model[layer].parameters():
         if p.requires_grad:

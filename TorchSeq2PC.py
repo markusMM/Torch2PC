@@ -1,6 +1,6 @@
 import torch
 from typing import Any
-from utils import fout_wrapper
+from .utils import fout_wrapper
 
 print('Running TorchSeq2PC.py with fout_wrapper Integration')
 
